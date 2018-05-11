@@ -322,14 +322,12 @@ func Run(opt *options.ServerOption) error {
 		log.Fatalf("There was a problem loading the app: %v", err)
 	}
 
-	registryUri := fmt.Sprintf("/opt/kubeflow/kubeflow")
-
 	registryName := "kubeflow"
 
 	options := map[string]interface{}{
 		actions.OptionApp:  kfApp,
 		actions.OptionName: registryName,
-		actions.OptionURI:  registryUri,
+		actions.OptionURI:  opt.RegistryUri,
 		// Version doesn't actually appear to be used by the add function.
 		actions.OptionVersion: "",
 		// Looks like override allows us to override existing registries; we shouldn't
