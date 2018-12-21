@@ -113,7 +113,7 @@ export default class DeployForm extends React.Component<any, DeployFormState> {
       dialogBody: '',
       dialogTitle: '',
       iap: true,
-      kfverison: 'v0.3.4',
+      kfverison: 'v0.3.5',
       project: '',
       showLogs: false,
       zone: 'us-central1-a',
@@ -186,7 +186,7 @@ export default class DeployForm extends React.Component<any, DeployFormState> {
         <Row style={{ minHeight: 20 }}>
           <Text style={{ fontSize: '1.1em', margin: '2% 11%' }}>Kubeflow Version:</Text>
           <select name="kfverison" style={{ display: 'flex', fontSize: '1.1em', margin: '2% 1%', }} spellCheck={false} value={this.state.kfverison} onChange={this._handleChange.bind(this)} >
-            <option value="v0.3.4">v0.3.4</option>
+            <option value="v0.3.5">v0.3.5</option>
           </select>
         </Row>
         <div style={{ display: 'flex', padding: '20px 60px 40px' }}>
@@ -431,12 +431,21 @@ export default class DeployForm extends React.Component<any, DeployFormState> {
       'members': ['serviceAccount:' + saEmail],
       'role': 'roles/owner'
     });
-    await Gapi.cloudresourcemanager.setIamPolicy(project, currProjPolicy)
-      .catch(e => {
-        this.setState({
-          dialogTitle: 'Failed setting IAM policy, please verify if have permission',
-        });
+    let returnPloicy = null;
+    for (let retries = 5; retries > 0; retries -= 1) {
+      returnPloicy = await Gapi.cloudresourcemanager.setIamPolicy(project, currProjPolicy)
+        .catch(e => this._appendLine('Pending on project environment sync up'));
+      if (returnPloicy !== undefined) {
+        break;
+      }
+      await wait(10000);
+    }
+    if (returnPloicy === undefined) {
+      this.setState({
+        dialogTitle: 'Failed setting IAM policy, please verify if have permission',
       });
+      return;
+    }
 
     const currSAPolicy = await Gapi.iam.getServiceAccountIAM(project, saEmail);
     if (!(bindingKey in currSAPolicy)) {
@@ -457,16 +466,18 @@ export default class DeployForm extends React.Component<any, DeployFormState> {
     }
 
     let token = null;
-    for (let retries = 10; retries > 0; retries -= 1) {
+    for (let retries = 20; retries > 0; retries -= 1) {
       token = await Gapi.iam.getServiceAccountToken(project, saEmail)
         .catch(e => this._appendLine('Pending on new service account policy sync up'));
       if (token !== undefined) {
         break;
       }
-      await wait(5000);
+      await wait(10000);
     }
     if (token === undefined) {
-      this._appendLine('Failed creating service account token, please verify if have permission');
+      this.setState({
+        dialogTitle: 'Failed creating service account token, please verify if have permission',
+      });
       return;
     }
 
